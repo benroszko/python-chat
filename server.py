@@ -1,4 +1,4 @@
-from socket import AF_INET, socket, SOCK_STREAM
+from socket import AF_INET, socket, SOCK_STREAM, SOCK_DGRAM
 from threading import Thread
 
 HOST = 'localhost'
@@ -26,9 +26,21 @@ def handle_quit_msg(client):
     clients.remove(client)
 
 
+def handle_udp(client, client_address, client_name):
+    print("START UDP")
+    while True:
+        msg = client.recvfrom(BUFF_SIZE)[0]
+        print("GOTIT")
+        send2AllUDP(client, client_address, msg, client_name+": ")
+
+
 def handle_one_connection(client, client_address):
     entered_name = client.recv(BUFF_SIZE).decode("utf8")
     send2All(client, bytes(entered_name + " has just joined the chat!", "utf8"))
+
+    udp_th = Thread(target=handle_udp, args=(
+        client, client_address, entered_name))
+    udp_th.start()
 
     while True:
         msg = client.recv(BUFF_SIZE)
@@ -39,6 +51,7 @@ def handle_one_connection(client, client_address):
             send2All(client, bytes(entered_name +
                                    " has left the chat.", "utf8"))
             print("%s:%s has just ended connection." % client_address)
+            udp_th.exit()
             break
 
 
@@ -48,10 +61,18 @@ def send2All(client, msg, prefix=""):
             sock.send(bytes(prefix, "utf8")+msg)
 
 
+def send2AllUDP(client, client_address, msg, prefix=""):
+    for sock in clients:
+        if sock != client:
+            sock.sendto(prefix.encode()+msg, client_address)
+
+
 clients = []
 
 SERVER = socket(AF_INET, SOCK_STREAM)
+SERVER_UDP = socket(AF_INET, SOCK_DGRAM)
 SERVER.bind(ADDRESS)
+SERVER_UDP.bind(ADDRESS)
 
 if __name__ == "__main__":
     SERVER.listen(100)

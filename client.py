@@ -1,4 +1,4 @@
-from socket import AF_INET, socket, SOCK_STREAM
+from socket import AF_INET, socket, SOCK_STREAM, SOCK_DGRAM
 from threading import Thread
 import tkinter
 
@@ -12,6 +12,14 @@ QUIT = ':q'
 def tk_insert_and_focus_on_last_msg(msg):
     msg_list.insert(tkinter.END, msg)
     msg_list.see(tkinter.END)
+
+
+def sendUDP():
+    msg = msg_var.get()
+    msg_var.set('')
+    if msg != '':
+        client_udp_socket.sendto(msg.encode(), ADDRESS)
+        tk_insert_and_focus_on_last_msg('%s: %s (UDP)' % (client_name, msg))
 
 
 def send():
@@ -28,7 +36,17 @@ def send():
                 tk_insert_and_focus_on_last_msg('%s: %s' % (client_name, msg))
         else:
             client_tcp_socket.close()
+            client_udp_socket.close()
             tk.quit()
+
+
+def receiveUDP():
+    while True:
+        try:
+            msg = client_tcp_socket.recvfrom(BUFFSIZE)[0].decode('utf8')
+            tk_insert_and_focus_on_last_msg(msg)
+        except OSError:
+            break
 
 
 def receive():
@@ -60,13 +78,20 @@ msg_field.bind("<Return>", send)
 msg_field.pack()
 send_btn = tkinter.Button(tk, text="Send", command=send)
 send_btn.pack()
+udp_btn = tkinter.Button(tk, text="UDP", command=sendUDP)
+udp_btn.pack()
 tk.protocol("WM_DELETE_WINDOW", handle_closing_window)
 
 # CLIENT MAIN
 client_name = ''
 client_tcp_socket = socket(AF_INET, SOCK_STREAM)
+client_udp_socket = socket(AF_INET, SOCK_DGRAM)
 client_tcp_socket.connect(ADDRESS)
 
-receiving_th = Thread(target=receive)
-receiving_th.start()
+receiving_tcp_th = Thread(target=receive)
+receiving_tcp_th.start()
+
+receiving_udp_th = Thread(target=receiveUDP)
+receiving_udp_th.start()
+
 tkinter.mainloop()
