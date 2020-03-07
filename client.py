@@ -9,12 +9,24 @@ ADDRESS = (HOST, PORT)
 QUIT = ':q'
 
 
+def tk_insert_and_focus_on_last_msg(msg):
+    msg_list.insert(tkinter.END, msg)
+    msg_list.see(tkinter.END)
+
+
 def send():
     msg = msg_var.get()
     msg_var.set('')
     if msg != '':
         client_tcp_socket.send(bytes(msg, "utf8"))
-        if msg == QUIT:
+        if msg != QUIT:
+            global client_name
+            if client_name == '':
+                client_name = msg
+                tk.title("ChatApp - " + client_name)
+            else:
+                tk_insert_and_focus_on_last_msg('%s: %s' % (client_name, msg))
+        else:
             client_tcp_socket.close()
             tk.quit()
 
@@ -23,7 +35,7 @@ def receive():
     while True:
         try:
             msg = client_tcp_socket.recv(BUFFSIZE).decode('utf8')
-            msg_list.insert(tkinter.END, msg)
+            tk_insert_and_focus_on_last_msg(msg)
         except OSError:
             break
 
@@ -51,6 +63,7 @@ send_btn.pack()
 tk.protocol("WM_DELETE_WINDOW", handle_closing_window)
 
 # CLIENT MAIN
+client_name = ''
 client_tcp_socket = socket(AF_INET, SOCK_STREAM)
 client_tcp_socket.connect(ADDRESS)
 
